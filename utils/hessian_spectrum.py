@@ -10,8 +10,6 @@ from contextlib import nullcontext
 import json
 
 
-
-
 class Hessian(object):
     def __init__(self, model = None,  m = 100, sigma = 1e-5**0.5, ckpt_iteration= 0, train_data = [], block_size = None, batch_size = None, num_v = 10, ctx =nullcontext(), use_minibatch = True, gradient_accumulation_steps = 1, device = 'cuda',  sample_layer = None, ddp = False, comment = None):
         self.model = model
@@ -30,22 +28,14 @@ class Hessian(object):
         self.num_v = num_v
         self.num_bins = 1000
 
-
- 
         total_elements = len(self.train_data)
         self.num_batches = total_elements // (self.batch_size * self.block_size)
-        
         print('total batch', self.num_batches)
-
         self.total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         #n_params = sum(p.numel() for p in self.parameters())
         print('total params', self.total_params)
-   
-
         self.comment = comment + '_minibatch_'+str(self.use_minibatch) +'_bs_'+str(self.batch_size*(self.gradient_accumulation_steps))+ '_m_'+str(self.m)  + '_v_' +str(self.num_v) + '_ckpt_'+str(self.ckpt_iteration)
-
         self.file_dir = 'files/'+str(self.comment)+'/'
-
         os.makedirs(self.file_dir, exist_ok= True)
 
 
@@ -57,9 +47,7 @@ class Hessian(object):
 
 
     def get_spectrum_layer_by_layer(self):
-      
         weights_dic, values_dic = {}, {}
-
         for name, param in self.model.named_parameters():
             if name not in self.sample_layer:
                 continue
@@ -69,7 +57,6 @@ class Hessian(object):
                 weights_dic[name] = [row.tolist() for row in zeros]
                 values_dic[name] =  [row.tolist() for row in zeros]
 
-    
         t_s = time.time()
         for k in range(self.num_v): 
             print('current k' , k)
@@ -90,8 +77,18 @@ class Hessian(object):
 
         self.save_curve(total_time= total_time, weights_layer = weights_dic, values_layer = values_dic)
         self._compute_and_save_block_stats(values_dic)
+        self._save_layer_eigenvalues(values_dic)
 
+    def _save_layer_eigenvalues(self, values_layer_dict, fname="layer_eigenvalues.json"):
+        out = {}
+        for name, vals in values_layer_dict.items():
+            flat = np.asarray(vals, dtype=np.float64).reshape(-1).tolist()
+            out[name] = flat
 
+        os.makedirs(self.file_dir, exist_ok=True)
+        out_path = os.path.join(self.file_dir, fname)
+        with open(out_path, "w") as f:
+            json.dump(out, f, indent=2)
 
     def get_spectrum_full(self):
       
@@ -227,8 +224,6 @@ class Hessian(object):
         with open(file_name, "r") as file:
             for line in file:
                 curve.append(float(line.strip()))  # Use strip() to remove 
-
-
 
         'plot'
         plt.figure()
@@ -443,6 +438,9 @@ class Hessian(object):
             with self.ctx:
                 _, loss = self.model(X, Y)
 
+            if isinstance(loss, torch.Tensor) and loss.dim() > 0:
+                loss = loss.mean()
+
             loss.backward(create_graph= True)
             g_dic = {}
             for name, param in self.model.named_parameters():
@@ -487,6 +485,9 @@ class Hessian(object):
             with self.ctx:
                 _, loss = self.model(X, Y)
 
+            if isinstance(loss, torch.Tensor) and loss.dim() > 0:
+                loss = loss.mean()
+
             loss.backward(create_graph= True)
             g_list = []
             for name, param in self.model.named_parameters():
@@ -524,11 +525,7 @@ class Hessian(object):
         X = torch.from_numpy((self.train_data[start_idx:end_idx]).astype(np.int64)).reshape(self.batch_size, self.block_size)
         Y = torch.from_numpy((self.train_data[start_idx+1:end_idx+1]).astype(np.int64)).reshape(self.batch_size, self.block_size)
         X, Y = X.pin_memory().to(self.device, non_blocking=True), Y.pin_memory().to(self.device, non_blocking=True)
-
         return X, Y
-
-
-
 
     def get_true_curve(self, grid, eigenvalues):
         curve = []
@@ -538,7 +535,6 @@ class Hessian(object):
             curve.append(value)
         return curve
         
-
     def gaussian_density(self, t, values):
         coeff = 1.0 / np.sqrt(2 * math.pi * self.sigma**2)
         val = -(values - t) ** 2
