@@ -7,7 +7,6 @@ script_dir = os.path.dirname(__file__)
 
 class DataLoaderLite:
     """ A simple dataloader for FineWebEdu-10B dataset """
-
     def __init__(self, B, T, process_rank, num_processes, split='train'):
         super().__init__()
         self.B, self.T = B, T
@@ -47,3 +46,21 @@ class DataLoaderLite:
             self.tokens = self.load_tokens(self.shard_filepaths[self.curr_shard])
             self.curr_pos = self.B * self.T * self.process_rank
         return x_batch, y_batch
+
+def get_mnist (train, batch_size, return_dataloader=False, shuffle=True):
+    """
+    Fetch MNIST dataset from torchvision.datasets.
+    Args:
+        train (bool): if True, train, else test.
+        shuffle (bool): if True, shuffle the dataset.
+    Returns:
+        tuple: (images, labels)
+    """
+    mnist_dataset = datasets.MNIST(root='./data', train=train, download=True, transform=transforms.ToTensor())
+    mnist_loader = DataLoader(mnist_dataset, batch_size=batch_size, shuffle=shuffle)
+    mnist_data, mnist_labels = next(iter(mnist_loader))
+    mnist_data = mnist_data.squeeze()
+    if return_dataloader:
+        return mnist_data, mnist_labels, mnist_loader
+    else:
+        return mnist_data, mnist_labels

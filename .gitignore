@@ -1,0 +1,9 @@
+logs/*
+venv/*
+files/*
+.DS_Store
+data/*
+__pycache__/*
+utils/__pycache__/*
+visualization/visualization_outputs/*
+experiments/__pycache__/*

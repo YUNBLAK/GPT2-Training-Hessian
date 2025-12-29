@@ -5,6 +5,31 @@ from dataclasses import dataclass
 import inspect
 
 
+class MLPSimple(nn.Module):
+    """
+    Simple Multi-Layer Perceptron with 8 neurons in hidden layer for MNIST: 
+    784 -> 8 -> num_classes (default 10)
+    """
+    def __init__(self, layer_sizes=[8,10]):
+        super().__init__()
+
+        input_dim = [28 * 28,]
+        layer_sizes = input_dim + layer_sizes
+        layers = [nn.Flatten()]
+        for a, b in zip(layer_sizes[:-2], layer_sizes[1:-1]):
+            layers.append(nn.Linear(a, b))
+            layers.append(nn.ReLU())
+        layers.append(nn.Linear(layer_sizes[-2], layer_sizes[-1]))
+        self.layers = nn.Sequential(*layers)
+    def forward(self, x, targets=None):
+        loss = None
+        if targets is not None:
+            loss = F.cross_entropy(self.layers(x), targets.long())
+            return self.layers(x), loss
+        else:
+            return self.layers(x)
+
+
 @dataclass
 class GPTConfig:
     context_length: int = 1024
